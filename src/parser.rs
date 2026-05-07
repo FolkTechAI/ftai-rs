@@ -605,10 +605,16 @@ impl<'a> Parser<'a> {
         }
     }
 
-    /// Look ahead through the remaining tokens, accounting for nesting,
-    /// to see if there's a matching `@end` at our current depth.
+    /// Look ahead through the remaining tokens to see if any `@end` exists.
+    ///
+    /// We do not try to match nesting precisely here: the FTAI corpus mixes
+    /// section-style tags (with `@end`) and tag-single style (no `@end`),
+    /// so true depth-tracking is undecidable from tokens alone. Instead we
+    /// say "this opener is a section if there's any `@end` ahead", and the
+    /// parser body uses the same heuristic recursively when consuming
+    /// children. The same-line value is captured separately in
+    /// `header_value` so no content is lost.
     fn has_matching_end_ahead(&self) -> bool {
-        let mut depth: i32 = 0;
         let mut i = self.pos;
         while i < self.tokens.len() {
             let t = &self.tokens[i];
@@ -616,26 +622,15 @@ impl<'a> Parser<'a> {
                 break;
             }
             if matches!(t.kind, TokenKind::At) {
-                // Skip leading `@@`s.
                 let mut j = i + 1;
                 while j < self.tokens.len() && matches!(self.tokens[j].kind, TokenKind::At) {
                     j += 1;
                 }
                 if let Some(next) = self.tokens.get(j) {
-                    if matches!(next.kind, TokenKind::Identifier) {
-                        if next.lexeme.eq_ignore_ascii_case("end") {
-                            if depth == 0 {
-                                return true;
-                            }
-                            depth -= 1;
-                            i = j + 1;
-                            continue;
-                        }
-                        // It's a tag opener — check if THIS opener has its
-                        // own `@end` ahead by recursing implicitly via depth.
-                        depth += 1;
-                        i = j + 1;
-                        continue;
+                    if matches!(next.kind, TokenKind::Identifier)
+                        && next.lexeme.eq_ignore_ascii_case("end")
+                    {
+                        return true;
                     }
                 }
             }

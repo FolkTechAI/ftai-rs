@@ -1,0 +1,10 @@
+@ftai v2.0
+
+@document Minimal Test
+  owner: Mike
+  date: 2025-04-29
+@end
+
+@section Testing Section
+  @note Do something important
+@end

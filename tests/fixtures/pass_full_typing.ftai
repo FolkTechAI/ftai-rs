@@ -1,0 +1,16 @@
+@ftai v2.0
+
+@document Typing Test
+  owner: FolkTech
+  date: 2025-04-29
+@end
+
+@goal Demonstrate typing
+@constraints
+  - Single constraint
+@end
+
+@tool_call my_tool
+  retries:int 3
+  success:bool true
+@end

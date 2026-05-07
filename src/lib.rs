@@ -81,3 +81,13 @@ pub fn to_string<T: serde::Serialize + ?Sized>(value: &T) -> Result<String> {
 pub fn from_str<T: serde::de::DeserializeOwned>(input: &str) -> Result<T> {
     crate::de::from_str(input)
 }
+
+/// Serialize a [`Document`] AST to canonical FTAI text. Useful when you
+/// have already parsed (or constructed) a `Document` and want to emit it
+/// without going through serde.
+///
+/// # Errors
+/// Returns `Err(Error::Io)` only if writing into the output buffer fails.
+pub fn to_string_doc(doc: &Document) -> Result<String> {
+    crate::serializer::serialize_document(doc)
+}

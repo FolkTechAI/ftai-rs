@@ -2,9 +2,6 @@
 //!
 //! Output is deterministic: same input value, same output bytes, every time.
 
-// Wired into the public API by Task 10 (`to_string`).
-#![allow(dead_code)]
-
 use crate::ast::{Block, Document, FtaiVersion, Section, Value};
 use crate::error::{Error, Result};
 use std::fmt::Write;
@@ -34,12 +31,25 @@ fn serialize_block(block: &Block, indent: usize, out: &mut String) -> Result<()>
     match block {
         Block::Section(s) => serialize_section(s, indent, out),
         Block::Narrative { text, .. } => {
-            out.push_str("---\n");
-            out.push_str(text);
-            if !text.ends_with('\n') {
-                out.push('\n');
+            // At the top level (indent == 0) narrative is wrapped with `---`
+            // separators so it can be distinguished from any preceding /
+            // following blocks. When nested inside a section we emit the
+            // text verbatim — `---` is a top-level construct.
+            if indent == 0 {
+                out.push_str("---\n");
+                out.push_str(text);
+                if !text.ends_with('\n') {
+                    out.push('\n');
+                }
+                out.push_str("---\n");
+            } else {
+                let pad = "  ".repeat(indent);
+                for line in text.split('\n') {
+                    out.push_str(&pad);
+                    out.push_str(line);
+                    out.push('\n');
+                }
             }
-            out.push_str("---\n");
             Ok(())
         }
     }
