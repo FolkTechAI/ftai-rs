@@ -1,0 +1,10 @@
+@ftai v2.0
+
+@document Quotes Test
+  owner: FolkTech
+  date: 2025-04-29
+@end
+
+@section Data
+  description: "This is a quoted value with spaces."
+@end

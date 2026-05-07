@@ -1,0 +1,11 @@
+@ftai v2.0
+
+@document Nested Sections Test
+  owner: FolkTech
+  date: 2025-04-29
+@end
+
+@section Level 1 Section
+  @@subsection Level 2 Subsection
+    - Subsection detail
+@end

@@ -1,0 +1,10 @@
+@ftai v2.0
+
+@document Dummy Test
+  owner: Mike
+  date: 2025-04-29
+@end
+
+@section Dummy
+  - Testing CI trigger
+@end // This is a dummy line to trigger GitHub CI. testing is good

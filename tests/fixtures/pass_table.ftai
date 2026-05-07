@@ -1,0 +1,15 @@
+@ftai v2.0
+
+@document Table Test
+  owner: FolkTech
+  date: 2025-04-29
+@end
+
+@section Data
+  @table Example Table
+    Name | Value
+    ---  | ---
+    Test1 | 123
+    Test2 | 456
+  @end
+@end

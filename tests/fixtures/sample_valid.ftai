@@ -1,0 +1,28 @@
+@ftai v2.0
+
+@document
+title: Sodium Bicarbonate
+author: Mike Folk
+schema: ems_med_card_v1
+tags: [medication, emergency]
+
+@schema
+name: ems_med_card_v1
+required_tags: ["@medication", "@class", "@indications", "@adult_dosing"]
+optional_tags: ["@pediatric_dosing", "@routes", "@side_effects", "@antidote"]
+@end
+
+@medication
+Sodium Bicarbonate
+
+@class
+Alkalinizing Agent
+
+@indications
+- Cardiac Arrest
+- TCA Overdose
+
+@adult_dosing
+1 mEq/kg IV/IO
+
+@end
