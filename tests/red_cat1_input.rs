@@ -53,9 +53,10 @@ fn red_malformed_utf8_rejected_at_str_boundary() {
 #[test]
 fn red_nesting_depth_exceeded_returns_clean_error() {
     // Build a document with 100 levels of nested @block @end ... — exceeds default 64.
+    use std::fmt::Write as _;
     let mut s = String::from("@ftai v2.0\n");
     for i in 0..100 {
-        s.push_str(&format!("@nest{i}\n"));
+        writeln!(s, "@nest{i}").unwrap();
     }
     for _ in 0..100 {
         s.push_str("@end\n");
