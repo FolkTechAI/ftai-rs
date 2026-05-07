@@ -58,8 +58,11 @@ pub fn parse(input: &str) -> Result<Document> {
 /// and stray whitespace per the FTAI spec's "fault-tolerant" principle.
 /// Returns the best-effort AST and the list of errors encountered.
 #[must_use]
-pub fn parse_lenient(_input: &str) -> (Document, Vec<Error>) {
-    todo!("Task 12")
+pub fn parse_lenient(input: &str) -> (Document, Vec<Error>) {
+    match crate::lexer::tokenize(input) {
+        Ok(tokens) => crate::parser::parse_tokens_lenient(&tokens),
+        Err(e) => (Document::default(), vec![e]),
+    }
 }
 
 /// Serialize a value implementing [`serde::Serialize`] to FTAI text.

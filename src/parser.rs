@@ -23,7 +23,6 @@ pub fn parse_tokens(tokens: &[Token]) -> Result<Document> {
 }
 
 /// Parse leniently — accumulates errors instead of returning on the first.
-#[allow(dead_code)] // Wired in Task 12.
 pub fn parse_tokens_lenient(tokens: &[Token]) -> (Document, Vec<Error>) {
     let mut p = Parser::new(tokens);
     p.lenient = true;
@@ -274,7 +273,6 @@ impl<'a> Parser<'a> {
             self.skip_newlines();
             match self.peek_kind() {
                 TokenKind::Eof => {
-                    self.depth -= 1;
                     if self.lenient {
                         self.errors.push(Error::UnterminatedBlock {
                             tag: tag_name.clone(),
@@ -282,6 +280,7 @@ impl<'a> Parser<'a> {
                         });
                         break;
                     }
+                    self.depth -= 1;
                     return Err(Error::UnterminatedBlock {
                         tag: tag_name.clone(),
                         line: opening_line,
