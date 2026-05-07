@@ -33,6 +33,12 @@ mod parser;
 mod ser;
 mod serializer;
 
+/// Test-only access to internals. Not part of the public API stability surface.
+#[doc(hidden)]
+pub mod __testing {
+    pub use crate::lexer::{Token, TokenKind, tokenize};
+}
+
 pub use crate::ast::{Block, Document};
 pub use crate::error::{Error, Result};
 
