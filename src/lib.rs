@@ -75,6 +75,6 @@ pub fn to_string<T: serde::Serialize + ?Sized>(value: &T) -> Result<String> {
 ///
 /// # Errors
 /// Returns `Err` if the input cannot be parsed or shaped into `T`.
-pub fn from_str<T: serde::de::DeserializeOwned>(_input: &str) -> Result<T> {
-    todo!("Task 11")
+pub fn from_str<T: serde::de::DeserializeOwned>(input: &str) -> Result<T> {
+    crate::de::from_str(input)
 }
