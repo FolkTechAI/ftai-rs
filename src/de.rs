@@ -18,8 +18,8 @@ use serde::de::{
 
 use crate::ast::{Block, Document, Section, Value};
 use crate::error::{Error, Result};
-use crate::parser::parse_tokens;
 use crate::lexer::tokenize;
+use crate::parser::parse_tokens;
 
 /// Deserialize a `.ftai` source string into a value implementing
 /// [`serde::de::DeserializeOwned`].
@@ -206,7 +206,10 @@ impl SectionMapAccess {
         }
         for child in section.children {
             if let Block::Section(child_section) = child {
-                items.push((child_section.tag.clone(), FieldSource::Section(child_section)));
+                items.push((
+                    child_section.tag.clone(),
+                    FieldSource::Section(child_section),
+                ));
             }
         }
         Self {

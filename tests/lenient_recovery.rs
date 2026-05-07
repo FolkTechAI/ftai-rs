@@ -5,9 +5,10 @@ fn lenient_unknown_tag_is_ignored_with_error_logged() {
     let input = "@ftai v2.0\n@unknown_tag\nx: 1\n@end\n@document\ntitle: \"ok\"\n@end\n";
     let (doc, errors) = ftai::parse_lenient(input);
     // The known tag landed
-    assert!(doc.blocks.iter().any(
-        |b| matches!(b, ftai::Block::Section(s) if s.tag == "document")
-    ));
+    assert!(doc
+        .blocks
+        .iter()
+        .any(|b| matches!(b, ftai::Block::Section(s) if s.tag == "document")));
     // Note: in lenient mode unknown tags are accepted as sections (fault-tolerant
     // principle). Errors may or may not be empty depending on parser strictness.
     // Currently no error is emitted for "unknown" tag because the parser does

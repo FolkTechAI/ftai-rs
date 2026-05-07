@@ -209,11 +209,7 @@ impl<'a> ser::Serializer for &'a mut RootSerializer {
             pending_key: None,
         })
     }
-    fn serialize_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStruct> {
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         Ok(StructBuilder {
             root: self,
             section: Section {
@@ -434,10 +430,7 @@ impl<'a> ser::Serializer for &'a mut NodeSerializer {
     }
     fn serialize_bytes(self, v: &[u8]) -> Result<()> {
         // Encode as a list of u8 numbers (deterministic, lossless for round-trip).
-        let items = v
-            .iter()
-            .map(|b| Value::Unquoted(b.to_string()))
-            .collect();
+        let items = v.iter().map(|b| Value::Unquoted(b.to_string())).collect();
         self.set(Outcome::Value(Value::List(items)));
         Ok(())
     }
@@ -538,11 +531,7 @@ impl<'a> ser::Serializer for &'a mut NodeSerializer {
             pending_key: None,
         })
     }
-    fn serialize_struct(
-        self,
-        _name: &'static str,
-        _len: usize,
-    ) -> Result<Self::SerializeStruct> {
+    fn serialize_struct(self, _name: &'static str, _len: usize) -> Result<Self::SerializeStruct> {
         Ok(NodeStructBuilder {
             node: self,
             section: Section {

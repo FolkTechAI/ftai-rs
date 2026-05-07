@@ -189,7 +189,9 @@ impl<'a> Parser<'a> {
         while matches!(self.peek_kind(), TokenKind::At) {
             self.advance();
         }
-        let id_tok = self.expect(&TokenKind::Identifier, "tag identifier")?.clone();
+        let id_tok = self
+            .expect(&TokenKind::Identifier, "tag identifier")?
+            .clone();
         let tag_name = id_tok.lexeme.to_lowercase();
         let opening_line = at_tok.span.start_line;
 

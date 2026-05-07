@@ -61,7 +61,13 @@ fn rust_output_matches_python_reference_on_corpus() {
             .as_array()
             .unwrap()
             .iter()
-            .map(|t| t["tag"].as_str().unwrap_or("").trim_start_matches('@').to_lowercase())
+            .map(|t| {
+                t["tag"]
+                    .as_str()
+                    .unwrap_or("")
+                    .trim_start_matches('@')
+                    .to_lowercase()
+            })
             .filter(|s| !s.is_empty() && s != "ftai" && s != "end")
             .collect();
 

@@ -17,7 +17,9 @@ pub type Result<T> = std::result::Result<T, Error>;
 #[non_exhaustive]
 pub enum Error {
     /// Lexer or parser encountered a token it did not expect.
-    #[error("unexpected token at line {line}, column {column}: expected {expected}, found {found}")]
+    #[error(
+        "unexpected token at line {line}, column {column}: expected {expected}, found {found}"
+    )]
     UnexpectedToken {
         /// Token kind expected (e.g., `@end`, `identifier`).
         expected: String,

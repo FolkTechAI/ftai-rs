@@ -67,8 +67,7 @@ fn key_value_missing_colon_rejects() {
     // tag-single content, so it cannot become a key/value pair. We assert
     // that the AST does NOT contain an attribute named "title" with a
     // structured value.
-    let doc =
-        ftai::parse("@ftai v2.0\n@doc\ntitle \"hi\"\n@end\n").expect("forgiving parse OK");
+    let doc = ftai::parse("@ftai v2.0\n@doc\ntitle \"hi\"\n@end\n").expect("forgiving parse OK");
     if let ftai::Block::Section(s) = &doc.blocks[0] {
         assert!(s.attributes.iter().all(|(k, _)| k != "title"));
     } else {
