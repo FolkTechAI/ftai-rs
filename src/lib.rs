@@ -66,8 +66,8 @@ pub fn parse_lenient(_input: &str) -> (Document, Vec<Error>) {
 ///
 /// # Errors
 /// Returns `Err` if the value cannot be represented as FTAI.
-pub fn to_string<T: serde::Serialize + ?Sized>(_value: &T) -> Result<String> {
-    todo!("Task 10")
+pub fn to_string<T: serde::Serialize + ?Sized>(value: &T) -> Result<String> {
+    crate::ser::to_string(value)
 }
 
 /// Deserialize a `.ftai` source string into a value implementing
