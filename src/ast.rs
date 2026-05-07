@@ -55,6 +55,12 @@ pub enum Block {
 pub struct Section {
     /// Tag name without leading `@` (case-insensitive per spec; stored lowercase).
     pub tag: String,
+    /// Optional same-line value following the opening `@tag` (e.g. the
+    /// `Minimal Test` in `@document Minimal Test`). Captured separately from
+    /// `attributes` so the round-trip serializer can place it on the
+    /// opening line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub header_value: Option<Value>,
     /// Key-value attributes in source order. Vec (not `HashMap`) preserves order
     /// and allows duplicate keys (the spec allows `multiple blocks of same type`).
     pub attributes: Vec<(String, Value)>,
@@ -136,6 +142,7 @@ mod tests {
     fn section_block_round_trips_via_clone_eq() {
         let s = Block::Section(Section {
             tag: "document".into(),
+            header_value: None,
             attributes: vec![("title".into(), Value::Quoted("Hi".into()))],
             children: vec![],
             span: Span::synthetic(),

@@ -49,8 +49,9 @@ pub use crate::error::{Error, Result};
 ///
 /// # Errors
 /// Returns `Err` on the first lex or parse failure.
-pub fn parse(_input: &str) -> Result<Document> {
-    todo!("Task 7")
+pub fn parse(input: &str) -> Result<Document> {
+    let tokens = lexer::tokenize(input)?;
+    parser::parse_tokens(&tokens)
 }
 
 /// Parse leniently: recover from unknown tags, missing `@end` markers,
