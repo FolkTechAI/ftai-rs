@@ -51,6 +51,20 @@ fn red_malformed_utf8_rejected_at_str_boundary() {
 }
 
 #[test]
+fn red_nesting_depth_exceeded_returns_clean_error() {
+    // Build a document with 100 levels of nested @block @end ... — exceeds default 64.
+    let mut s = String::from("@ftai v2.0\n");
+    for i in 0..100 {
+        s.push_str(&format!("@nest{i}\n"));
+    }
+    for _ in 0..100 {
+        s.push_str("@end\n");
+    }
+    let err = ftai::parse(&s).expect_err("excessive nesting must be rejected");
+    assert_eq!(err.category(), ErrorCategory::LimitExceeded);
+}
+
+#[test]
 fn red_nesting_depth_in_lexer_path_does_not_panic_on_pathological_brackets() {
     // Lexer doesn't enforce nesting (parser does), but pathological bracket
     // sequences must not cause stack overflow during lexing.
