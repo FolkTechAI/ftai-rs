@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# ftai-rs pre-commit hook.
+#
+# Runs three gates before allowing a commit:
+#   1. cargo fmt --all -- --check
+#   2. cargo clippy --all-targets -- -D warnings
+#   3. cargo check --all-targets
+
+set -euo pipefail
+
+if [[ "${FTAI_SKIP_PRECOMMIT:-0}" == "1" ]]; then
+    echo "pre-commit: skipped (FTAI_SKIP_PRECOMMIT=1)" >&2
+    exit 0
+fi
+
+root="$(git rev-parse --show-toplevel)"
+cd "$root"
+
+echo "pre-commit: cargo fmt --check"
+cargo fmt --all -- --check
+
+echo "pre-commit: cargo clippy --all-targets -- -D warnings"
+cargo clippy --all-targets -- -D warnings
+
+echo "pre-commit: cargo check --all-targets"
+cargo check --all-targets
