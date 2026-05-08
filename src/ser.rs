@@ -323,6 +323,17 @@ fn add_field<T: ser::Serialize + ?Sized>(
             section.children.push(Block::Section(child));
             Ok(())
         }
+        Outcome::SectionList(children) => {
+            // `Vec<struct>` field: emit each element as a child section
+            // sharing the field name as tag. Symmetric deserialization in
+            // `de.rs` groups repeated child tags back into a single sequence.
+            let tag = key.to_lowercase();
+            for mut child in children {
+                child.tag.clone_from(&tag);
+                section.children.push(Block::Section(child));
+            }
+            Ok(())
+        }
     }
 }
 
@@ -331,6 +342,11 @@ enum Outcome {
     Skipped,
     Value(Value),
     SubSection(Section),
+    /// A list of structs/maps. Serialized as repeated child sections sharing
+    /// the field's name as tag (rewritten in `add_field`). Empty `Vec<struct>`
+    /// is represented by `Outcome::Value(Value::List(vec![]))` instead so the
+    /// "absent vs empty" distinction round-trips through the attribute path.
+    SectionList(Vec<Section>),
 }
 
 #[derive(Default)]
@@ -354,6 +370,9 @@ fn value_of<T: ser::Serialize + ?Sized>(value: &T) -> Result<Value> {
         Outcome::Value(v) => Ok(v),
         Outcome::Skipped => Ok(Value::Unquoted(String::new())),
         Outcome::SubSection(_) => Err(Error::Serde("expected scalar value, got struct".into())),
+        Outcome::SectionList(_) => Err(Error::Serde(
+            "expected scalar value, got list of structs".into(),
+        )),
     }
 }
 
@@ -488,12 +507,14 @@ impl<'a> ser::Serializer for &'a mut NodeSerializer {
         Ok(SeqBuilder {
             node: self,
             items: Vec::new(),
+            sections: Vec::new(),
         })
     }
     fn serialize_tuple(self, _len: usize) -> Result<Self::SerializeTuple> {
         Ok(SeqBuilder {
             node: self,
             items: Vec::new(),
+            sections: Vec::new(),
         })
     }
     fn serialize_tuple_struct(
@@ -504,6 +525,7 @@ impl<'a> ser::Serializer for &'a mut NodeSerializer {
         Ok(SeqBuilder {
             node: self,
             items: Vec::new(),
+            sections: Vec::new(),
         })
     }
     fn serialize_tuple_variant(
@@ -516,6 +538,7 @@ impl<'a> ser::Serializer for &'a mut NodeSerializer {
         Ok(SeqBuilder {
             node: self,
             items: Vec::new(),
+            sections: Vec::new(),
         })
     }
     fn serialize_map(self, _len: Option<usize>) -> Result<Self::SerializeMap> {
@@ -565,18 +588,56 @@ impl<'a> ser::Serializer for &'a mut NodeSerializer {
 
 struct SeqBuilder<'a> {
     node: &'a mut NodeSerializer,
+    /// Accumulated scalar values. Mutually exclusive with `sections`.
     items: Vec<Value>,
+    /// Accumulated child sections (for `Vec<struct>`). Mutually exclusive with `items`.
+    sections: Vec<Section>,
 }
 
 impl SeqBuilder<'_> {
     fn push_serialize<T: ser::Serialize + ?Sized>(&mut self, value: &T) -> Result<()> {
-        let v = value_of(value)?;
-        self.items.push(v);
+        let mut elem = NodeSerializer::default();
+        value.serialize(&mut elem)?;
+        match elem.into_outcome() {
+            Outcome::Value(v) => {
+                if !self.sections.is_empty() {
+                    return Err(Error::Serde(
+                        "sequence mixes scalar and struct elements; only homogeneous sequences are supported".into(),
+                    ));
+                }
+                self.items.push(v);
+            }
+            Outcome::Skipped => {
+                if !self.sections.is_empty() {
+                    return Err(Error::Serde(
+                        "sequence mixes Skipped and struct elements".into(),
+                    ));
+                }
+                self.items.push(Value::Unquoted(String::new()));
+            }
+            Outcome::SubSection(s) => {
+                if !self.items.is_empty() {
+                    return Err(Error::Serde(
+                        "sequence mixes scalar and struct elements; only homogeneous sequences are supported".into(),
+                    ));
+                }
+                self.sections.push(s);
+            }
+            Outcome::SectionList(_) => {
+                return Err(Error::Serde(
+                    "nested Vec<Vec<struct>> is not supported in v0.1.2".into(),
+                ));
+            }
+        }
         Ok(())
     }
 
     fn finish(self) {
-        self.node.set(Outcome::Value(Value::List(self.items)));
+        if self.sections.is_empty() {
+            self.node.set(Outcome::Value(Value::List(self.items)));
+        } else {
+            self.node.set(Outcome::SectionList(self.sections));
+        }
     }
 }
 
