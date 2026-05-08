@@ -204,7 +204,11 @@ struct SectionMapAccess {
 
 enum FieldSource {
     Value(Value),
-    Section(Section),
+    /// One or more child sections sharing the same tag. A single section
+    /// is presented as a `Sections` of length 1 so consumers asking for
+    /// `Vec<X>` and consumers asking for `X` are both satisfied by the
+    /// `SectionsDeserializer` below.
+    Sections(Vec<Section>),
 }
 
 impl SectionMapAccess {
@@ -213,12 +217,24 @@ impl SectionMapAccess {
         for (k, v) in section.attributes {
             items.push((k, FieldSource::Value(v)));
         }
+        // Group child sections by tag (preserving first-occurrence order)
+        // so a `Vec<struct>` field deserializes from repeated children that
+        // share the field name as tag.
+        let mut tag_order: Vec<String> = Vec::new();
+        let mut grouped: std::collections::HashMap<String, Vec<Section>> =
+            std::collections::HashMap::new();
         for child in section.children {
             if let Block::Section(child_section) = child {
-                items.push((
-                    child_section.tag.clone(),
-                    FieldSource::Section(child_section),
-                ));
+                let tag = child_section.tag.clone();
+                if !grouped.contains_key(&tag) {
+                    tag_order.push(tag.clone());
+                }
+                grouped.entry(tag).or_default().push(child_section);
+            }
+        }
+        for tag in tag_order {
+            if let Some(sections) = grouped.remove(&tag) {
+                items.push((tag, FieldSource::Sections(sections)));
             }
         }
         Self {
@@ -249,7 +265,125 @@ impl<'de> MapAccess<'de> for SectionMapAccess {
             .ok_or_else(|| Error::Serde("map value without preceding key".into()))?;
         match source {
             FieldSource::Value(v) => seed.deserialize(ValueDeserializer { value: v }),
-            FieldSource::Section(s) => seed.deserialize(SectionDeserializer::new(s)),
+            FieldSource::Sections(sections) => seed.deserialize(SectionsDeserializer { sections }),
+        }
+    }
+}
+
+/// Deserializer for one or more child sections sharing a tag.
+///
+/// Routes by what serde asks for:
+/// - `deserialize_seq` (when target is `Vec<T>`): yield each section.
+/// - `deserialize_struct` / `deserialize_map` / `deserialize_enum` /
+///   `deserialize_any` (when target is `T`): take the first section.
+///
+/// Single-element groups (the common case for nested structs) work
+/// transparently on either path.
+struct SectionsDeserializer {
+    sections: Vec<Section>,
+}
+
+impl SectionsDeserializer {
+    fn first(self) -> Result<Section> {
+        self.sections
+            .into_iter()
+            .next()
+            .ok_or_else(|| Error::Serde("expected child section, found none".into()))
+    }
+}
+
+impl<'de> Deserializer<'de> for SectionsDeserializer {
+    type Error = Error;
+
+    fn deserialize_seq<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        visitor.visit_seq(SectionsSeqAccess {
+            iter: self.sections.into_iter(),
+        })
+    }
+
+    fn deserialize_tuple<V: Visitor<'de>>(self, _len: usize, visitor: V) -> Result<V::Value> {
+        self.deserialize_seq(visitor)
+    }
+
+    fn deserialize_tuple_struct<V: Visitor<'de>>(
+        self,
+        _name: &'static str,
+        _len: usize,
+        visitor: V,
+    ) -> Result<V::Value> {
+        self.deserialize_seq(visitor)
+    }
+
+    fn deserialize_map<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        SectionDeserializer::new(self.first()?).deserialize_map(visitor)
+    }
+
+    fn deserialize_struct<V: Visitor<'de>>(
+        self,
+        name: &'static str,
+        fields: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value> {
+        SectionDeserializer::new(self.first()?).deserialize_struct(name, fields, visitor)
+    }
+
+    fn deserialize_enum<V: Visitor<'de>>(
+        self,
+        name: &'static str,
+        variants: &'static [&'static str],
+        visitor: V,
+    ) -> Result<V::Value> {
+        SectionDeserializer::new(self.first()?).deserialize_enum(name, variants, visitor)
+    }
+
+    fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        SectionDeserializer::new(self.first()?).deserialize_any(visitor)
+    }
+
+    fn deserialize_option<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        if self.sections.is_empty() {
+            visitor.visit_none()
+        } else {
+            visitor.visit_some(self)
+        }
+    }
+
+    fn deserialize_newtype_struct<V: Visitor<'de>>(
+        self,
+        name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value> {
+        SectionDeserializer::new(self.first()?).deserialize_newtype_struct(name, visitor)
+    }
+
+    fn deserialize_unit<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
+        SectionDeserializer::new(self.first()?).deserialize_unit(visitor)
+    }
+
+    fn deserialize_unit_struct<V: Visitor<'de>>(
+        self,
+        name: &'static str,
+        visitor: V,
+    ) -> Result<V::Value> {
+        SectionDeserializer::new(self.first()?).deserialize_unit_struct(name, visitor)
+    }
+
+    serde::forward_to_deserialize_any! {
+        bool i8 i16 i32 i64 u8 u16 u32 u64 f32 f64 char str string
+        bytes byte_buf identifier ignored_any
+    }
+}
+
+struct SectionsSeqAccess {
+    iter: std::vec::IntoIter<Section>,
+}
+
+impl<'de> SeqAccess<'de> for SectionsSeqAccess {
+    type Error = Error;
+    fn next_element_seed<T: DeserializeSeed<'de>>(&mut self, seed: T) -> Result<Option<T::Value>> {
+        match self.iter.next() {
+            Some(s) => seed.deserialize(SectionDeserializer::new(s)).map(Some),
+            None => Ok(None),
         }
     }
 }

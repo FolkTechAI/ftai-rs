@@ -174,3 +174,119 @@ fn externally_tagged_unit_variant_roundtrips() {
     let back: ExternallyTagged = ftai::from_str(&text).unwrap();
     assert_eq!(v, back);
 }
+
+// ---------------------------------------------------------------------------
+// v0.1.2 round-trip bug regression: Bug 3 — Vec<struct>
+//
+// Discovered 2026-05-08 by mitosis-core's HardWalled persistence path:
+// `Vec<AclSubjectRow>` (a list of structs) serialized fine but failed
+// deserialize with `expected scalar value, got struct`. Root cause: the
+// SeqBuilder used `value_of(...)` for every element, which only accepts
+// scalar Values. Any struct element produced an Outcome::SubSection that
+// `value_of` rejected.
+//
+// Fix (v0.1.2): a Vec<struct> field on a struct serializes as repeated
+// child sections with the field name as tag. Deserialization groups
+// repeated child sections by tag and presents them as a single sequence
+// to the field's `Vec<T>` deserializer. Empty Vec<struct> is preserved
+// via an empty Value::List attribute fallback.
+// ---------------------------------------------------------------------------
+
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+struct AclEntry {
+    kind: String,
+    value: String,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Default)]
+struct ClusterAcl {
+    name: String,
+    #[serde(default)]
+    readers: Vec<AclEntry>,
+    #[serde(default)]
+    writers: Vec<AclEntry>,
+}
+
+#[test]
+fn vec_of_struct_roundtrips_with_multiple_elements() {
+    let v = ClusterAcl {
+        name: "test-cluster".into(),
+        readers: vec![
+            AclEntry {
+                kind: "Department".into(),
+                value: "engineering".into(),
+            },
+            AclEntry {
+                kind: "User".into(),
+                value: "alice".into(),
+            },
+        ],
+        writers: vec![AclEntry {
+            kind: "Department".into(),
+            value: "engineering".into(),
+        }],
+    };
+    let text = ftai::to_string(&v).unwrap();
+    let back: ClusterAcl = ftai::from_str(&text).unwrap();
+    assert_eq!(v, back);
+}
+
+#[test]
+fn vec_of_struct_roundtrips_with_one_element() {
+    let v = ClusterAcl {
+        name: "single".into(),
+        readers: vec![AclEntry {
+            kind: "User".into(),
+            value: "bob".into(),
+        }],
+        writers: vec![],
+    };
+    let text = ftai::to_string(&v).unwrap();
+    let back: ClusterAcl = ftai::from_str(&text).unwrap();
+    assert_eq!(v, back);
+}
+
+#[test]
+fn vec_of_struct_roundtrips_when_empty() {
+    let v = ClusterAcl {
+        name: "lonely".into(),
+        readers: vec![],
+        writers: vec![],
+    };
+    let text = ftai::to_string(&v).unwrap();
+    let back: ClusterAcl = ftai::from_str(&text).unwrap();
+    assert_eq!(v, back);
+}
+
+/// Internally-tagged enum elements in a Vec — this is the actual mitosis-core
+/// case (`Vec<AclSubject>` where `AclSubject` is `#[serde(tag = "kind")]`).
+#[derive(Serialize, Deserialize, PartialEq, Debug)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum AclSubject {
+    Department { name: String },
+    User { id: String },
+    Anyone,
+}
+
+#[derive(Serialize, Deserialize, PartialEq, Debug, Default)]
+struct ClusterAclTagged {
+    name: String,
+    #[serde(default)]
+    readers: Vec<AclSubject>,
+}
+
+#[test]
+fn vec_of_internally_tagged_enum_struct_variants_roundtrips() {
+    let v = ClusterAclTagged {
+        name: "tagged".into(),
+        readers: vec![
+            AclSubject::Department {
+                name: "engineering".into(),
+            },
+            AclSubject::User { id: "u-123".into() },
+        ],
+    };
+    let text = ftai::to_string(&v).unwrap();
+    let back: ClusterAclTagged = ftai::from_str(&text).unwrap();
+    assert_eq!(v, back);
+}

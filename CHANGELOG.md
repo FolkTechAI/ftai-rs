@@ -1,5 +1,38 @@
 # Changelog
 
+## v0.1.2 — 2026-05-08
+
+### Fixed
+
+- **Bug 3 (round-trip):** `Vec<struct>` fields could not be serialized.
+  The `SeqBuilder` used `value_of(...)` on every element, which only
+  accepts scalar `Value`s — any struct element produced an
+  `Outcome::SubSection` that `value_of` rejected with
+  `expected scalar value, got struct`. Found by mitosis-core's
+  `HardWalled` persistence path on a `Vec<AclSubjectRow>` field.
+
+  Fix: a `Vec<struct>` field on a struct now serializes as repeated
+  child sections sharing the field name as tag (idiomatic FTAI). The
+  deserializer groups repeated child tags by name and presents them as
+  a single sequence to `Vec<T>::deserialize`. Single-element groups
+  are interchangeably consumable as `T` or `Vec<T>` so existing nested
+  struct round-trips are unaffected. Empty `Vec<struct>` round-trips
+  through an empty `Value::List` attribute fallback. Mixed scalar-and-
+  struct sequences are explicitly rejected (homogeneity required).
+
+### Added
+
+- 4 new red tests in `tests/serde_roundtrip.rs` covering: 1-element,
+  N-element, empty, and `Vec<internally-tagged-enum>` (the actual
+  mitosis-core `Vec<AclSubject>` shape).
+
+### Compatibility
+
+- No public API changes. `Cargo.toml` minor version bump only.
+- Existing consumers of single-nested-struct fields continue to round-
+  trip identically (the new grouped-by-tag deserializer handles
+  single-occurrence as a `Sections` of length 1).
+
 ## v0.1.1 — 2026-05-07
 
 ### Fixed
