@@ -1,5 +1,47 @@
 # Changelog
 
+## v0.1.1 — 2026-05-07
+
+### Fixed
+
+- **Bug 1 (round-trip):** integer/float/bool fields nested inside an
+  internally-tagged enum's struct variant were being passed to the visitor
+  as `String` (e.g. `"42"`) instead of the requested type (e.g. `u32`).
+  `ValueDeserializer::deserialize_any` now attempts `i64 → u64 → f64 →
+  bool → string` parsing on `Unquoted` values before falling back to
+  `visit_string`. Found by mitosis-core's Phase 2a `MitosisCluster`
+  round-trip.
+- **Bug 2 (round-trip):** externally-tagged enums (the default — no
+  `#[serde(tag = "...")]`) failed deserialization at top level because
+  the serializer emits lowercased section tags (per FTAI's
+  case-insensitive tag rule) but serde's variant matcher is case-sensitive.
+  `SectionDeserializer::deserialize_enum` now folds case against the
+  static `variants` list to recover the canonical case before passing to
+  the visitor. Found by mitosis-core's Phase 2b `Actor` /
+  `AuditAction` enums.
+
+### Known limitation (deferred)
+
+- Externally-tagged enums **nested inside a struct** still lose their
+  variant name on round-trip — the field-name-as-section-tag architecture
+  cannot encode both the field name AND the variant name in the same
+  section. Workaround: use **internally-tagged** enums
+  (`#[serde(tag = "kind")]`) for nested use. mitosis-core's `Actor`,
+  `AuditAction`, and `VerificationOutcome` all do this. The test
+  `externally_tagged_enum_nested_in_struct_roundtrips` is `#[ignore]`-marked
+  with explanatory text. A future serializer rework can add a wrapping
+  layer (`@field { @variant { fields } }`) to lift this limitation
+  without breaking existing consumers.
+
+### Tests
+
+- 4 new red tests in `tests/serde_roundtrip.rs` covering both bugs and
+  the documented limitation. All non-ignored tests pass; the documented
+  limitation test is `#[ignore]`-marked.
+- Aggregate: 59 passing, 0 failing, 3 ignored across the full crate.
+
+---
+
 ## v0.1.0 — 2026-05-07 (planned)
 
 ### Added

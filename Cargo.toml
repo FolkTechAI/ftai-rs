@@ -1,6 +1,6 @@
 [package]
 name = "ftai"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Mike Folk <mike@folktech.ai>"]
 description = "FTAI v2.0 parser and serde adapter — Rust sibling of FolkTechAI/ftai-spec"

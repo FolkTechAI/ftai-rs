@@ -147,12 +147,21 @@ impl<'de> Deserializer<'de> for SectionDeserializer {
     fn deserialize_enum<V: Visitor<'de>>(
         self,
         _name: &'static str,
-        _variants: &'static [&'static str],
+        variants: &'static [&'static str],
         visitor: V,
     ) -> Result<V::Value> {
+        // FTAI tags are case-insensitive (spec rule 4). The serializer
+        // emits lowercased section tags; here we recover the original
+        // case from the static `variants` list so serde's case-sensitive
+        // discriminant matcher accepts the variant.
         let tag = self.section.tag.clone();
+        let canonical = variants
+            .iter()
+            .find(|v| v.eq_ignore_ascii_case(&tag))
+            .map(std::string::ToString::to_string)
+            .unwrap_or(tag);
         visitor.visit_enum(SectionEnumAccess {
-            variant: tag,
+            variant: canonical,
             section: self.section,
         })
     }
@@ -283,7 +292,40 @@ impl<'de> Deserializer<'de> for ValueDeserializer {
 
     fn deserialize_any<V: Visitor<'de>>(self, visitor: V) -> Result<V::Value> {
         match self.value {
-            Value::Quoted(s) | Value::Unquoted(s) => visitor.visit_string(s),
+            // Quoted strings are unambiguously strings.
+            Value::Quoted(s) => visitor.visit_string(s),
+            // Unquoted values are ambiguous — could be int, float, bool,
+            // or identifier-like string. For self-describing-format
+            // contexts (e.g., serde's internally-tagged-enum content
+            // visitor calling deserialize_any on each field), try int →
+            // float → bool → string in that priority. The first
+            // successful parse wins. This matches the behaviour
+            // consumers expect when they call `from_str::<MyType>` and
+            // `MyType` has a numeric field on a nested enum variant.
+            Value::Unquoted(s) => {
+                let trimmed = s.trim();
+                // Integer first (signed then unsigned). Try i64 to cover
+                // the widest signed range; for u64 values that exceed
+                // i64::MAX we fall through to u64.
+                if let Ok(i) = trimmed.parse::<i64>() {
+                    return visitor.visit_i64(i);
+                }
+                if let Ok(u) = trimmed.parse::<u64>() {
+                    return visitor.visit_u64(u);
+                }
+                // Float next.
+                if let Ok(f) = trimmed.parse::<f64>() {
+                    return visitor.visit_f64(f);
+                }
+                // Bool tokens.
+                match trimmed {
+                    "true" | "True" | "TRUE" => return visitor.visit_bool(true),
+                    "false" | "False" | "FALSE" => return visitor.visit_bool(false),
+                    _ => {}
+                }
+                // Fall back to string.
+                visitor.visit_string(s)
+            }
             Value::List(items) => visitor.visit_seq(ListSeqAccess {
                 iter: items.into_iter(),
             }),
